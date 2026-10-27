@@ -4,15 +4,15 @@ import React, { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import {
   ChevronLeft,
-  MoreHorizontal,
+  Download,
   Heart,
-  Share2,
   Copy,
   Check,
   Volume2,
   VolumeX,
   Sparkles,
   X,
+  Loader2,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { QuranVerse } from "@/app/api/verses/route";
@@ -20,6 +20,7 @@ import { getBackgroundForAyah } from "@/lib/backgrounds";
 import { useFavorites } from "@/context/FavoritesContext";
 import { useAudio } from "@/context/AudioContext";
 import { VerseCard } from "@/components/VerseCard";
+import { downloadVerseCardImage } from "@/lib/downloadVerseImage";
 
 interface DetailViewModalProps {
   verse: QuranVerse | null;
@@ -47,7 +48,9 @@ export function DetailViewModal({
   const { isFavorite, toggleFavorite } = useFavorites();
   const { activeVerse, isPlaying, togglePlay, audioError } = useAudio();
   const [copied, setCopied] = useState(false);
+  const [downloading, setDownloading] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const cardRef = useRef<HTMLDivElement | null>(null);
 
   // Scroll to top when active verse changes
   useEffect(() => {
@@ -87,20 +90,15 @@ export function DetailViewModal({
     }
   };
 
-  const handleShare = async () => {
-    const shareData = {
-      title: `Surah ${verse.surahNameEnglish} (${verse.surahNumber}:${verse.numberInSurah})`,
-      text: `"${verse.englishText}" — Surah ${verse.surahNameEnglish}`,
-      url: window.location.href,
-    };
-    if (navigator.share) {
-      try {
-        await navigator.share(shareData);
-      } catch (err) {
-        // Dismissed
-      }
-    } else {
-      await handleCopy();
+  const handleDownload = async () => {
+    if (!cardRef.current || downloading) return;
+    setDownloading(true);
+    try {
+      await downloadVerseCardImage(cardRef.current, verse);
+    } catch (e) {
+      console.error("Download failed:", e);
+    } finally {
+      setDownloading(false);
     }
   };
 
@@ -124,11 +122,17 @@ export function DetailViewModal({
 
           <div className="flex items-center gap-2">
             <button
-              onClick={handleShare}
-              aria-label="Share verse"
-              className="w-9 h-9 rounded-full flex items-center justify-center text-slate-300 hover:text-white hover:bg-white/10 transition-colors"
+              onClick={handleDownload}
+              disabled={downloading}
+              aria-label="Download HD image"
+              title="Download HD Wallpaper"
+              className="w-9 h-9 rounded-full flex items-center justify-center text-slate-300 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
             >
-              <MoreHorizontal className="w-5 h-5" />
+              {downloading ? (
+                <Loader2 className="w-5 h-5 animate-spin text-emerald-400" />
+              ) : (
+                <Download className="w-5 h-5 text-emerald-400" />
+              )}
             </button>
             <button
               onClick={onClose}
@@ -148,6 +152,7 @@ export function DetailViewModal({
           <div className="max-w-2xl mx-auto flex flex-col items-center">
             {/* Hero Card */}
             <motion.div
+              ref={cardRef}
               layoutId={`verse-card-${verse.number}`}
               className="relative w-full rounded-3xl overflow-hidden shadow-2xl border border-[#163842]/40 bg-[#0b1e22] text-white flex flex-col p-6 sm:p-8"
             >
@@ -160,6 +165,7 @@ export function DetailViewModal({
                     fill
                     sizes="(max-width: 640px) 100vw, 680px"
                     priority
+                    crossOrigin="anonymous"
                     className="object-cover"
                   />
                   <div className="absolute inset-0 bg-gradient-to-b from-black/55 via-black/45 to-black/90" />
@@ -177,10 +183,10 @@ export function DetailViewModal({
                   {verse.surahNameEnglish} {verse.surahNumber}:{verse.numberInSurah}
                 </h2>
                 <div className="flex items-center gap-2 mt-1.5">
-                  <span className="text-[11px] px-2 py-0.5 rounded-full bg-white/15 text-white/90 backdrop-blur-xs font-medium">
+                  <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-white/15 text-white/90 backdrop-blur-xs font-medium">
                     {verse.surahNameMeaning}
                   </span>
-                  <span className="text-[11px] px-2 py-0.5 rounded-full bg-white/15 text-white/90 backdrop-blur-xs font-medium">
+                  <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-white/15 text-white/90 backdrop-blur-xs font-medium">
                     {verse.revelationType} • Juz {verse.juz}
                   </span>
                 </div>
@@ -214,9 +220,12 @@ export function DetailViewModal({
                 </p>
               </div>
 
-              {/* Audio Recitation Button */}
+              {/* Audio Recitation Button - marked with data-export-ignore so it doesn't appear on downloaded image */}
               {verse.audioUrl && (
-                <div className="relative z-10 mt-4 flex items-center justify-center">
+                <div
+                  data-export-ignore="true"
+                  className="relative z-10 mt-4 flex items-center justify-center"
+                >
                   <button
                     onClick={() => togglePlay(verse)}
                     aria-label={isCurrentAudioPlaying ? "Pause audio" : "Play audio"}
@@ -242,18 +251,21 @@ export function DetailViewModal({
               )}
 
               {audioError && (
-                <p className="relative z-10 text-[11px] text-amber-300 text-center mt-2">
+                <p
+                  data-export-ignore="true"
+                  className="relative z-10 text-[11px] text-amber-300 text-center mt-2"
+                >
                   Audio streaming momentarily unavailable for this ayah.
                 </p>
               )}
             </motion.div>
 
-            {/* Engagement Row under Hero Card (as in inspiration.mp4) */}
+            {/* Engagement Row under Hero Card (Save, Download HD, Copy) */}
             <div className="w-full flex items-center justify-around py-4 mt-1 border-b border-[#0f272d]/60 text-slate-300">
-              {/* Like Button */}
+              {/* Like / Save Button */}
               <button
                 onClick={() => toggleFavorite(verse)}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-xl hover:bg-white/5 active:scale-95 transition-all cursor-pointer"
+                className="flex items-center gap-2 px-3.5 py-2 rounded-xl hover:bg-white/5 active:scale-95 transition-all cursor-pointer"
               >
                 <Heart
                   className={`w-5 h-5 ${
@@ -265,19 +277,33 @@ export function DetailViewModal({
                 </span>
               </button>
 
-              {/* Share Button */}
+              {/* Download HD Button (Replaces Share button) */}
               <button
-                onClick={handleShare}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-xl hover:bg-white/5 active:scale-95 transition-all cursor-pointer"
+                onClick={handleDownload}
+                disabled={downloading}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/25 active:scale-95 transition-all cursor-pointer"
               >
-                <Share2 className="w-5 h-5 text-slate-300" />
-                <span className="text-xs font-semibold">Share</span>
+                {downloading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin text-emerald-400" />
+                    <span className="text-xs font-semibold text-emerald-400">
+                      Generating...
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <Download className="w-4 h-4 text-emerald-400" />
+                    <span className="text-xs font-semibold text-emerald-300">
+                      Download HD
+                    </span>
+                  </>
+                )}
               </button>
 
               {/* Copy Button */}
               <button
                 onClick={handleCopy}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-xl hover:bg-white/5 active:scale-95 transition-all cursor-pointer"
+                className="flex items-center gap-2 px-3.5 py-2 rounded-xl hover:bg-white/5 active:scale-95 transition-all cursor-pointer"
               >
                 {copied ? (
                   <>
