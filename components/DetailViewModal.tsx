@@ -20,13 +20,27 @@ import { getBackgroundForAyah } from "@/lib/backgrounds";
 import { useFavorites } from "@/context/FavoritesContext";
 import { useAudio } from "@/context/AudioContext";
 import { VerseCard } from "@/components/VerseCard";
-import { downloadVerseCardImage } from "@/lib/downloadVerseImage";
+import { downloadVerseCardImage, shareVerseCardToWhatsApp } from "@/lib/downloadVerseImage";
 
 interface DetailViewModalProps {
   verse: QuranVerse | null;
   allVerses: QuranVerse[];
   onClose: () => void;
   onSelectVerse: (verse: QuranVerse) => void;
+}
+
+// Authentic WhatsApp SVG Icon
+function WhatsAppIcon({ className = "w-4 h-4" }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
+    </svg>
+  );
 }
 
 // Convert Latin numerals to Eastern Arabic numerals (e.g. 114 -> ١١٤)
@@ -49,6 +63,7 @@ export function DetailViewModal({
   const { activeVerse, isPlaying, togglePlay, audioError } = useAudio();
   const [copied, setCopied] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [sharingWhatsApp, setSharingWhatsApp] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const cardRef = useRef<HTMLDivElement | null>(null);
 
@@ -102,6 +117,18 @@ export function DetailViewModal({
     }
   };
 
+  const handleShareWhatsApp = async () => {
+    if (!cardRef.current || sharingWhatsApp) return;
+    setSharingWhatsApp(true);
+    try {
+      await shareVerseCardToWhatsApp(cardRef.current, verse);
+    } catch (e) {
+      console.error("WhatsApp share failed:", e);
+    } finally {
+      setSharingWhatsApp(false);
+    }
+  };
+
   return (
     <AnimatePresence>
       <motion.div
@@ -121,6 +148,22 @@ export function DetailViewModal({
           </button>
 
           <div className="flex items-center gap-2">
+            {/* Quick WhatsApp Share in Header */}
+            <button
+              onClick={handleShareWhatsApp}
+              disabled={sharingWhatsApp}
+              aria-label="Share HD image to WhatsApp"
+              title="Share to WhatsApp"
+              className="w-9 h-9 rounded-full flex items-center justify-center text-[#25D366] hover:bg-[#25D366]/15 transition-colors cursor-pointer"
+            >
+              {sharingWhatsApp ? (
+                <Loader2 className="w-5 h-5 animate-spin text-[#25D366]" />
+              ) : (
+                <WhatsAppIcon className="w-5 h-5 text-[#25D366]" />
+              )}
+            </button>
+
+            {/* Quick Download in Header */}
             <button
               onClick={handleDownload}
               disabled={downloading}
@@ -134,6 +177,7 @@ export function DetailViewModal({
                 <Download className="w-5 h-5 text-emerald-400" />
               )}
             </button>
+
             <button
               onClick={onClose}
               aria-label="Close detail view"
@@ -147,7 +191,7 @@ export function DetailViewModal({
         {/* Scrollable Content Container */}
         <div
           ref={containerRef}
-          className="flex-1 overflow-y-auto px-4 py-4 sm:py-6 no-scrollbar"
+          className="flex-1 overflow-y-auto px-4 py-4 sm:py-6 no-scrollbar pb-[env(safe-area-inset-bottom)]"
         >
           <div className="max-w-2xl mx-auto flex flex-col items-center">
             {/* Hero Card */}
@@ -260,34 +304,42 @@ export function DetailViewModal({
               )}
             </motion.div>
 
-            {/* Engagement Row under Hero Card (Save, Download HD, Copy) */}
-            <div className="w-full flex items-center justify-around py-4 mt-1 border-b border-[#0f272d]/60 text-slate-300">
-              {/* Like / Save Button */}
+            {/* Engagement Row under Hero Card (Save, WhatsApp, Download HD, Copy) */}
+            <div className="w-full flex items-center justify-between gap-1.5 py-4 mt-1 border-b border-[#0f272d]/60 text-slate-300 overflow-x-auto no-scrollbar">
+              {/* WhatsApp Share Button */}
               <button
-                onClick={() => toggleFavorite(verse)}
-                className="flex items-center gap-2 px-3.5 py-2 rounded-xl hover:bg-white/5 active:scale-95 transition-all cursor-pointer"
+                onClick={handleShareWhatsApp}
+                disabled={sharingWhatsApp}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#25D366]/15 text-[#25D366] border border-[#25D366]/30 hover:bg-[#25D366]/25 active:scale-95 transition-all cursor-pointer shrink-0"
               >
-                <Heart
-                  className={`w-5 h-5 ${
-                    liked ? "fill-red-500 text-red-500" : "text-slate-300"
-                  }`}
-                />
-                <span className="text-xs font-semibold">
-                  {liked ? "Saved" : "Save"}
-                </span>
+                {sharingWhatsApp ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin text-[#25D366]" />
+                    <span className="text-xs font-semibold text-[#25D366]">
+                      Sharing...
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <WhatsAppIcon className="w-4 h-4 text-[#25D366]" />
+                    <span className="text-xs font-semibold text-[#25D366]">
+                      WhatsApp
+                    </span>
+                  </>
+                )}
               </button>
 
-              {/* Download HD Button (Replaces Share button) */}
+              {/* Download HD Button */}
               <button
                 onClick={handleDownload}
                 disabled={downloading}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/25 active:scale-95 transition-all cursor-pointer"
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/25 active:scale-95 transition-all cursor-pointer shrink-0"
               >
                 {downloading ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin text-emerald-400" />
                     <span className="text-xs font-semibold text-emerald-400">
-                      Generating...
+                      Saving...
                     </span>
                   </>
                 ) : (
@@ -300,21 +352,36 @@ export function DetailViewModal({
                 )}
               </button>
 
+              {/* Like / Save Button */}
+              <button
+                onClick={() => toggleFavorite(verse)}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl hover:bg-white/5 active:scale-95 transition-all cursor-pointer shrink-0"
+              >
+                <Heart
+                  className={`w-4 h-4 ${
+                    liked ? "fill-red-500 text-red-500" : "text-slate-300"
+                  }`}
+                />
+                <span className="text-xs font-semibold">
+                  {liked ? "Saved" : "Save"}
+                </span>
+              </button>
+
               {/* Copy Button */}
               <button
                 onClick={handleCopy}
-                className="flex items-center gap-2 px-3.5 py-2 rounded-xl hover:bg-white/5 active:scale-95 transition-all cursor-pointer"
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl hover:bg-white/5 active:scale-95 transition-all cursor-pointer shrink-0"
               >
                 {copied ? (
                   <>
-                    <Check className="w-5 h-5 text-emerald-400" />
+                    <Check className="w-4 h-4 text-emerald-400" />
                     <span className="text-xs font-semibold text-emerald-400">
                       Copied
                     </span>
                   </>
                 ) : (
                   <>
-                    <Copy className="w-5 h-5 text-slate-300" />
+                    <Copy className="w-4 h-4 text-slate-300" />
                     <span className="text-xs font-semibold">Copy</span>
                   </>
                 )}

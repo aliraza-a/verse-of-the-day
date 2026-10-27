@@ -1,44 +1,101 @@
 import { toPng } from "html-to-image";
 import { QuranVerse } from "@/app/api/verses/route";
 
-export async function downloadVerseCardImage(
+export function getVerseFileName(verse: QuranVerse): string {
+  const safeSurahName = verse.surahNameEnglish.replace(/[^a-zA-Z0-9]/g, "-");
+  return `Surah-${safeSurahName}-${verse.surahNumber}-${verse.numberInSurah}.png`;
+}
+
+// Generate the high-resolution 2.5x retina PNG data URL
+export async function generateVerseCardDataUrl(
   element: HTMLElement,
   verse: QuranVerse
-): Promise<void> {
-  // Filename safe format: Surah-Hud-11-114-Verse-of-the-day.png
-  const safeSurahName = verse.surahNameEnglish.replace(/[^a-zA-Z0-9]/g, "-");
-  const fileName = `Surah-${safeSurahName}-${verse.surahNumber}-${verse.numberInSurah}.png`;
+): Promise<{ dataUrl: string; fileName: string }> {
+  const fileName = getVerseFileName(verse);
 
   try {
-    // Generate high-resolution 2.5x retina PNG
     const dataUrl = await toPng(element, {
       quality: 0.98,
       pixelRatio: 2.5,
       cacheBust: true,
       filter: (node) => {
-        // Exclude elements marked with data-export-ignore (e.g. interactive audio player buttons)
+        // Exclude interactive elements from the wallpaper image
         if (node instanceof HTMLElement && node.dataset.exportIgnore === "true") {
           return false;
         }
         return true;
       },
     });
-
-    // Create temporary download link and trigger download
-    const link = document.createElement("a");
-    link.download = fileName;
-    link.href = dataUrl;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    return { dataUrl, fileName };
   } catch (error) {
     console.warn("Primary html-to-image export failed, attempting canvas fallback:", error);
-    await fallbackCanvasDownload(verse, fileName);
+    const dataUrl = await generateCanvasFallbackDataUrl(verse);
+    return { dataUrl, fileName };
   }
 }
 
+// Download HD image directly to device
+export async function downloadVerseCardImage(
+  element: HTMLElement,
+  verse: QuranVerse
+): Promise<void> {
+  const { dataUrl, fileName } = await generateVerseCardDataUrl(element, verse);
+
+  const link = document.createElement("a");
+  link.download = fileName;
+  link.href = dataUrl;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
+// Direct share HD image to WhatsApp
+export async function shareVerseCardToWhatsApp(
+  element: HTMLElement,
+  verse: QuranVerse
+): Promise<void> {
+  const { dataUrl, fileName } = await generateVerseCardDataUrl(element, verse);
+
+  const shareText = `"${verse.arabicText}"\n\n"${verse.englishText}"\n\n— Surah ${verse.surahNameEnglish} (${verse.surahNumber}:${verse.numberInSurah})`;
+
+  try {
+    // Convert dataUrl to a native File object for mobile Web Share
+    const response = await fetch(dataUrl);
+    const blob = await response.blob();
+    const file = new File([blob], fileName, { type: "image/png" });
+
+    // On iOS Safari and Android Chrome, navigator.canShare({ files: [file] }) is supported!
+    if (typeof navigator !== "undefined" && navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({
+        files: [file],
+        title: `Surah ${verse.surahNameEnglish} (${verse.surahNumber}:${verse.numberInSurah})`,
+        text: shareText,
+      });
+      return;
+    }
+  } catch (err: unknown) {
+    if ((err as Error)?.name === "AbortError") {
+      return; // User canceled the share prompt
+    }
+    console.warn("File sharing not supported or canceled, falling back to direct WhatsApp link:", err);
+  }
+
+  // Fallback for desktop / browsers where files cannot be passed directly into Web Share:
+  // 1. Download the HD image automatically
+  const link = document.createElement("a");
+  link.download = fileName;
+  link.href = dataUrl;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+
+  // 2. Open WhatsApp Web / App with pre-filled message
+  const whatsappUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(shareText)}`;
+  window.open(whatsappUrl, "_blank");
+}
+
 // Fallback high-resolution canvas generator (1080x1440 HD Poster)
-async function fallbackCanvasDownload(verse: QuranVerse, fileName: string): Promise<void> {
+async function generateCanvasFallbackDataUrl(verse: QuranVerse): Promise<string> {
   const canvas = document.createElement("canvas");
   const width = 1080;
   const height = 1440;
@@ -46,7 +103,7 @@ async function fallbackCanvasDownload(verse: QuranVerse, fileName: string): Prom
   canvas.height = height;
 
   const ctx = canvas.getContext("2d");
-  if (!ctx) return;
+  if (!ctx) return "";
 
   // Background deep dark teal gradient
   const bgGrad = ctx.createLinearGradient(0, 0, 0, height);
@@ -97,14 +154,7 @@ async function fallbackCanvasDownload(verse: QuranVerse, fileName: string): Prom
   ctx.font = "20px -apple-system, sans-serif";
   ctx.fillText("Verse of the Day • Translation: Saheeh International", width / 2, height - 80);
 
-  // Trigger download
-  const dataUrl = canvas.toDataURL("image/png");
-  const link = document.createElement("a");
-  link.download = fileName;
-  link.href = dataUrl;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
+  return canvas.toDataURL("image/png");
 }
 
 function wrapText(
