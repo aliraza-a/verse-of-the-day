@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Amiri } from "next/font/google";
 import "./globals.css";
+import { AudioProvider } from "@/context/AudioContext";
+import { FavoritesProvider } from "@/context/FavoritesContext";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -19,8 +21,8 @@ const amiri = Amiri({
 });
 
 export const metadata: Metadata = {
-  title: "Random Quranic Verse | آية من القرآن الكريم",
-  description: "Read, listen, and reflect upon a random Quranic verse with authentic Arabic script, English translation, and audio recitation.",
+  title: "Inspiration — Verse of the Day | آية اليوم",
+  description: "A mobile-first Islamic inspiration app presenting sacred Quranic verses with authentic calligraphy, English translations, and audio recitation.",
 };
 
 export default function RootLayout({
@@ -31,9 +33,15 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} ${amiri.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} ${amiri.variable} h-full antialiased dark`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col bg-[#061316] text-white">
+        <FavoritesProvider>
+          <AudioProvider>
+            {children}
+          </AudioProvider>
+        </FavoritesProvider>
+      </body>
     </html>
   );
 }
