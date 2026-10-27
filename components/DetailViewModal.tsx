@@ -111,7 +111,7 @@ export function DetailViewModal({
         className="fixed inset-0 z-50 bg-[#061316]/95 backdrop-blur-xl flex flex-col overflow-hidden"
       >
         {/* Detail View Header */}
-        <div className="shrink-0 w-full max-w-4xl mx-auto px-4 h-14 flex items-center justify-between border-b border-[#0f272d]/40">
+        <div className="shrink-0 w-full max-w-4xl mx-auto px-4 h-14 pt-[env(safe-area-inset-top)] box-content flex items-center justify-between border-b border-[#0f272d]/40">
           <button
             onClick={onClose}
             className="flex items-center gap-1 text-slate-300 hover:text-white py-1 px-2 -ml-2 rounded-lg hover:bg-white/10 active:scale-95 transition-all"

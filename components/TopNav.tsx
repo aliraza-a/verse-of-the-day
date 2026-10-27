@@ -13,7 +13,7 @@ export function TopNav({ onOpenSaved, onResetFeed }: TopNavProps) {
   const { favorites } = useFavorites();
 
   return (
-    <header className="sticky top-0 z-30 w-full bg-[#061316]/90 backdrop-blur-md border-b border-[#0f272d]/40 transition-colors">
+    <header className="sticky top-0 z-30 w-full bg-[#061316]/90 backdrop-blur-md border-b border-[#0f272d]/40 transition-colors pt-[env(safe-area-inset-top)]">
       <div className="max-w-4xl mx-auto px-4 h-14 flex items-center justify-between">
         {/* Left: Back / Reset */}
         <button

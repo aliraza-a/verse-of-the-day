@@ -31,7 +31,7 @@ export function SavedVersesModal({
         className="fixed inset-0 z-50 bg-[#061316]/95 backdrop-blur-xl flex flex-col"
       >
         {/* Header */}
-        <div className="w-full max-w-4xl mx-auto px-4 h-14 flex items-center justify-between border-b border-[#0f272d]/40">
+        <div className="w-full max-w-4xl mx-auto px-4 h-14 pt-[env(safe-area-inset-top)] box-content flex items-center justify-between border-b border-[#0f272d]/40">
           <div className="flex items-center gap-2 text-white">
             <Bookmark className="w-5 h-5 text-emerald-400" />
             <h2 className="font-semibold text-base sm:text-lg">Saved Verses</h2>

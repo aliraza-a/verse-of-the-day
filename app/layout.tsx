@@ -1,8 +1,9 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, Amiri } from "next/font/google";
 import "./globals.css";
 import { AudioProvider } from "@/context/AudioContext";
 import { FavoritesProvider } from "@/context/FavoritesContext";
+import { PwaRegister } from "@/components/PwaRegister";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -20,9 +21,38 @@ const amiri = Amiri({
   weight: ["400", "700"],
 });
 
+export const viewport: Viewport = {
+  themeColor: "#061316",
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: "cover",
+};
+
 export const metadata: Metadata = {
   title: "Inspiration — Verse of the Day | آية اليوم",
   description: "A mobile-first Islamic inspiration app presenting sacred Quranic verses with authentic calligraphy, English translations, and audio recitation.",
+  manifest: "/manifest.webmanifest",
+  applicationName: "Inspiration",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Inspiration",
+    startupImage: "/icons/icon-512.png",
+  },
+  icons: {
+    icon: [
+      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [
+      { url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
+    ],
+  },
+  formatDetection: {
+    telephone: false,
+  },
 };
 
 export default function RootLayout({
@@ -39,6 +69,7 @@ export default function RootLayout({
         <FavoritesProvider>
           <AudioProvider>
             {children}
+            <PwaRegister />
           </AudioProvider>
         </FavoritesProvider>
       </body>
